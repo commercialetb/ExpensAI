@@ -1,0 +1,8 @@
+{
+  "name": "expensai-netlify",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "xlsx-populate": "^1.21.0"
+  }
+}

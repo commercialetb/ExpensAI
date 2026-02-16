@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ExpensAI" />
+  <title>ExpensAI</title>
+
+  <link rel="manifest" href="manifest.json" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+  <!-- Firebase (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
+  <style>
+    .glass{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);backdrop-filter: blur(14px)}
+    .hidden{display:none}
+  </style>
+
+<style>
+/* iOS safe-area fix (status bar overlap) */
+:root{ --sat: env(safe-area-inset-top); --sar: env(safe-area-inset-right); --sal: env(safe-area-inset-left); --sab: env(safe-area-inset-bottom); }
+html, body { padding-top: var(--sat); padding-left: var(--sal); padding-right: var(--sar); }
+header, .topbar, #appHeader { padding-top: var(--sat); }
+</style>
+
+</head>
+<body class="bg-black text-white min-h-screen">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-black/70 backdrop-blur border-b border-white/10">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="font-black tracking-tight">ExpensAI</div>
+      <div class="text-xs opacity-80" id="cloudStatus">Cloud: —</div>
+    </div>
+  </header>
+
+  <!-- Screens -->
+  <main class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- LOGIN -->
+    <section id="loginScreen" class="glass rounded-2xl p-6 max-w-md mx-auto">
+      <h2 class="text-2xl font-black mb-1">Accedi</h2>
+      <p class="opacity-75 mb-4">Nome + Matricola + PIN (4 cifre)</p>
+      <div class="space-y-3">
+        <input id="loginName" class="w-full p-3 rounded-xl bg-white/10 border border-white/15" placeholder="Nome e Cognome" />
+        <input id="loginID" class="w-full p-3 rounded-xl bg-white/10 border border-white/15" placeholder="Matricola" />
+        <input id="loginPIN" type="password" maxlength="4" class="w-full p-3 rounded-xl bg-white/10 border border-white/15" placeholder="PIN" />
+        <button id="btnLogin" class="w-full p-3 rounded-xl bg-blue-600 font-bold">Accedi</button>
+        <button id="btnGoRegister" class="w-full p-3 rounded-xl bg-white/10 font-semibold">Registrati</button>
+      </div>
+      <div class="text-xs opacity-70 mt-4">Suggerimento: usa sempre gli stessi dati su iPad e iPhone.</div>
+    </section>
+
+    <!-- REGISTER -->
+    <section id="registerScreen" class="glass rounded-2xl p-6 max-w-md mx-auto hidden">
+      <h2 class="text-2xl font-black mb-1">Crea account</h2>
+      <p class="opacity-75 mb-4">Nome + Matricola + PIN (4 cifre)</p>
+      <div class="space-y-3">
+        <input id="regName" class="w-full p-3 rounded-xl bg-white/10 border border-white/15" placeholder="Nome e Cognome" />
+        <input id="regID" class="w-full p-3 rounded-xl bg-white/10 border border-white/15" placeholder="Matricola" />
+        <input id="regPIN" type="password" maxlength="4" class="w-full p-3 rounded-xl bg-white/10 border border-white/15" placeholder="PIN" />
+        <button id="btnRegister" class="w-full p-3 rounded-xl bg-green-600 font-bold">Crea account</button>
+        <button id="btnBackToLogin" class="w-full p-3 rounded-xl bg-white/10 font-semibold">Torna al login</button>
+      </div>
+    </section>
+
+    <!-- APP -->
+    <section id="appScreen" class="space-y-6 hidden">
+
+      <!-- Top row -->
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div class="glass rounded-2xl p-5">
+          <div class="text-xs opacity-70">Utente</div>
+          <div class="font-black text-lg" id="userLabel">—</div>
+          <div class="text-xs opacity-70" id="userSub">—</div>
+          <div class="mt-3 flex gap-2">
+            <button id="btnLogout" class="px-3 py-2 rounded-xl bg-white/10">Logout</button>
+            <button id="btnRefresh" class="px-3 py-2 rounded-xl bg-white/10">Aggiorna</button>
+          </div>
+        </div>
+
+        <div class="glass rounded-2xl p-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-xs opacity-70">Budget mensile</div>
+              
+              <div class="text-xs opacity-70 mt-2">Mese di riferimento</div>
+              <input id="monthSelect" type="month" class="mt-1 w-full p-2 rounded-xl bg-white/10 border border-white/15" />
+<input id="budget" type="number" class="mt-1 w-full p-2 rounded-xl bg-white/10 border border-white/15" value="1500" />
+            </div>
+          </div>
+          <button id="btnSaveBudget" class="mt-3 w-full p-3 rounded-xl bg-white/10 font-semibold">Salva budget</button>
+        </div>
+
+        <div class="glass rounded-2xl p-5">
+          <div class="text-xs opacity-70">Groq API Key</div>
+          <input id="groqKey" class="mt-1 w-full p-2 rounded-xl bg-white/10 border border-white/15" placeholder="Incolla qui" />
+          <div class="flex gap-2 mt-3">
+            <button id="btnSaveKey" class="flex-1 p-3 rounded-xl bg-white/10 font-semibold">Salva</button>
+            <button id="btnTestKey" class="flex-1 p-3 rounded-xl bg-white/10 font-semibold">Test</button>
+          </div>
+          <div class="text-xs opacity-70 mt-2" id="groqStatus">Stato: —</div>
+        </div>
+      </div>
+
+      <!-- Add expense -->
+      <div class="glass rounded-2xl p-5">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <div class="font-black text-lg">Nuova spesa</div>
+            <div class="text-xs opacity-70">Scatta una foto, verifica i campi, salva. Poi salva la ricevuta PDF su OneDrive (scegli tu dove).</div>
+          </div>
+          <div class="flex gap-2">
+            <label class="cursor-pointer px-4 py-3 rounded-xl bg-blue-600 font-bold text-center">
+              📸 Scatta
+              <input id="receiptInput" type="file" accept="image/*" capture="environment" class="hidden" />
+            </label>
+            <label class="cursor-pointer px-4 py-3 rounded-xl bg-white/10 font-semibold text-center">
+              🖼️ Libreria
+              <input id="receiptInputLibrary" type="file" accept="image/*" class="hidden" />
+            </label>
+          </div>
+        </div>
+
+        <div id="loader" class="hidden mt-4 text-sm opacity-80">⏳ AI in corso…</div>
+
+        <!-- Responsive form grid: keep it readable on iPad/smaller windows -->
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 mt-4">
+          <input id="fDate" type="date" class="p-2 rounded-xl bg-white/10 border border-white/15" />
+          <input id="fAmount" type="number" step="0.01" class="p-2 rounded-xl bg-white/10 border border-white/15" placeholder="Importo" />
+          <input id="fDesc" class="p-2 rounded-xl bg-white/10 border border-white/15 md:col-span-2" placeholder="Descrizione" />
+          <select id="fCat" class="p-2 rounded-xl bg-white/10 border border-white/15">
+            <option value="pernottamento">pernottamento</option>
+            <option value="autoveicoli">autoveicoli</option>
+            <option value="trasporto">trasporto</option>
+            <option value="vitto_affari">vitto_affari</option>
+            <option value="altro">altro</option>
+          </select>
+          <input id="fClient" class="p-2 rounded-xl bg-white/10 border border-white/15 md:col-span-3" placeholder="Cliente / trasferta" />
+          <button id="btnSaveExpense" class="p-3 rounded-xl bg-green-600 font-bold md:col-span-2">Salva spesa</button>
+        </div>
+        <div class="text-xs opacity-70 mt-2" id="dupHint">Duplicati: —</div>
+      </div>
+
+      <!-- Alerts + export -->
+      <!-- Responsive: avoid 3 tight columns on iPad; use 3 cols only on very wide screens -->
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div class="glass rounded-2xl p-5 md:col-span-2">
+          <div class="font-black text-lg mb-3">Spese</div>
+          <div id="expensesList" class="space-y-2"></div>
+        </div>
+        <div class="space-y-4">
+          <div class="glass rounded-2xl p-5">
+            <div class="font-black text-lg">Alert</div>
+            <div id="alerts" class="mt-3 space-y-2 text-sm"></div>
+          </div>
+          <div class="glass rounded-2xl p-5">
+            <div class="font-black text-lg">Export</div>
+            <button id="btnExportExcel" class="mt-3 w-full p-3 rounded-xl bg-white/10 font-semibold">Esporta Excel (template)</button>
+            <div class="text-xs opacity-70 mt-2">Genera lo stesso file modello che mi hai fornito.</div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- App scripts -->
+  <script src="js/firebase.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/firestore.js"></script>
+  <script src="js/localReceipts.js"></script>
+  <script src="js/pdf.js"></script>
+  <script src="js/excel.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+    }
+  </script>
+</body>
+</html>
