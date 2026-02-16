@@ -1,3 +1,4 @@
+const fs = require("fs");
 const path = require("path");
 const XlsxPopulate = require("xlsx-populate");
 
@@ -63,7 +64,28 @@ exports.handler = async (event) => {
     const month = selectedMonth || (new Date().toISOString().slice(0,7));
     const monthExpenses = expenses.filter(e => monthKey(e.date) === month).sort((a,b)=>(a.seq||0)-(b.seq||0));
 
-    const templatePath = path.join(__dirname, "template.xlsx");
+const candidates = [
+  path.join(__dirname, "template.xlsx"),
+  path.join(process.cwd(), "netlify", "functions", "template.xlsx"),
+  "/var/task/netlify/functions/template.xlsx",
+  "/var/task/.netlify/functions/template.xlsx",
+];
+
+let templatePath = null;
+for (const p of candidates) {
+  try {
+    fs.accessSync(p, fs.constants.R_OK);
+    templatePath = p;
+    break;
+  } catch (_) {}
+}
+
+if (!templatePath) {
+  const dirList = (() => { try { return fs.readdirSync(__dirname); } catch(e){ return ["(cannot read __dirname)"]; }})();
+  throw new Error(
+    `Template non trovato. __dirname=${__dirname} cwd=${process.cwd()} dir=${JSON.stringify(dirList)} candidates=${JSON.stringify(candidates)}`
+  );
+}
     const wb = await XlsxPopulate.fromFileAsync(templatePath);
     const details = wb.sheet("Details");
     if (!details) throw new Error("Foglio 'Details' non trovato nel template.");
