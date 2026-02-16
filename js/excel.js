@@ -1,63 +1,61 @@
-// js/excel.js
-(function () {
-  // crea namespace in modo sicuro (anche se qualche file lo resetta)
-  window.ExpensAI = window.ExpensAI || {};
-  window.ExpensAI.excel = window.ExpensAI.excel || {};
+window.ExpensAI.excel = {
+  async exportExcelTemplate(){
 
-  async function exportExcelTemplate() {
-    const state = window.ExpensAI.state || {};
-    const monthInput = document.getElementById("monthSelect");
-    const selectedMonth = state.selectedMonth || monthInput?.value || new Date().toISOString().slice(0, 7);
+    const expenses = window.ExpensAI.state.expenses;
+    const selectedMonth = document.getElementById("monthSelect").value;
 
-    const userName =
-      state.user?.name ||
-      document.getElementById("userLabel")?.textContent ||
-      "Utente";
-
-    const expenses = Array.isArray(state.expenses) ? state.expenses : [];
-    if (!expenses.length) {
-      alert("Nessuna spesa da esportare.");
+    if(!selectedMonth){
+      alert("Seleziona un mese");
       return;
     }
 
-    // Normalizza le date (IMPORTANTISSIMO se arrivano da Firestore Timestamp)
-    const normalized = expenses.map(e => {
-      let d = e.date;
-      if (d && typeof d === "object" && (d.seconds || d._seconds)) {
-        const sec = d.seconds || d._seconds;
-        d = new Date(sec * 1000).toISOString().slice(0, 10);
-      }
-      if (d instanceof Date) d = d.toISOString().slice(0, 10);
-      return { ...e, date: (typeof d === "string" ? d : "") };
-    });
+    const monthExpenses = expenses.filter(e =>
+      e.date && e.date.startsWith(selectedMonth)
+    );
 
-    const res = await fetch("/.netlify/functions/export_excel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userName, selectedMonth, expenses: normalized })
-    });
-
-    if (!res.ok) {
-      const t = await res.text();
-      throw new Error(t || "Errore server export");
+    if(monthExpenses.length === 0){
+      alert("Nessuna spesa per questo mese");
+      return;
     }
 
-    const blob = await res.blob();
-    const fileName = `Notaspese_${userName.replace(/\s+/g, "_")}_${selectedMonth}.xlsx`;
+    // Carica il template dal progetto
+    const response = await fetch("template.xlsx");
+    const arrayBuffer = await response.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: "array" });
 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    const sheet = workbook.Sheets["Details"];
+    if(!sheet){
+      alert("Foglio 'Details' non trovato");
+      return;
+    }
+
+    let row = 6; // riga iniziale scrittura
+
+    monthExpenses.forEach(e => {
+      XLSX.utils.sheet_add_aoa(sheet, [[
+        e.date,
+        e.desc,
+        e.client,
+        e.amount,
+        e.seq || "",
+        e.cat
+      ]], { origin: `A${row}` });
+
+      row++;
+    });
+
+    const newFile = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array"
+    });
+
+    const blob = new Blob([newFile], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Notaspese_${selectedMonth}.xlsx`;
+    link.click();
   }
-
-  // ESPONE la funzione
-  window.ExpensAI.excel.exportExcelTemplate = exportExcelTemplate;
-
-  // Debug utile: puoi vedere da console se è stata caricata
-  window.ExpensAI.excel.__loaded = true;
-})();
+};
