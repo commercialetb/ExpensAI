@@ -186,9 +186,14 @@
     $('btnTestKey').onclick = onTestKey;
 
     $('btnExportExcel').onclick = async ()=>{
-      try{ await window.ExpensAI.excel.exportExcelTemplate(); }
-      catch(e){ alert('❌ Export Excel: ' + (e?.message||e)); }
-    };
+  const fn = window.ExpensAI?.excel?.exportExcelTemplate;
+  if (typeof fn !== "function") {
+    alert("Export Excel non disponibile: excel.js non caricato.");
+    return;
+  }
+  try { await fn(); }
+  catch(e){ alert('❌ Export Excel: ' + (e?.message||e)); }
+};
 
     // set default date
     $('fDate').value = new Date().toISOString().slice(0,10);
