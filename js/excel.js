@@ -33,26 +33,33 @@
     altro:         { rows: [37,38] }
   };
 
-  function clearData(details) {
-    const rowsToClear = [];
-    Object.values(CATEGORY_SLOTS).forEach(v => v.rows.forEach(r => rowsToClear.push(r)));
-    for (const r of rowsToClear) {
-      for (const c of ["A", "B", "C", "D", "E", "F"]) {
-        details.cell(`${c}${r}`).value(null);
-      }
+  function clearData(details){
+  const rowsToClear = [];
+  Object.values(CATEGORY_SLOTS).forEach(v => v.rows.forEach(r => rowsToClear.push(r)));
+  for (const r of rowsToClear){
+    for (const c of ["B","C","D","E","F"]){
+      details.cell(`${c}${r}`).value(null);
     }
   }
+}
 
-  function writeLine(details, row, e) {
-    details.cell(`A${row}`).value(e.date || "");
-    details.cell(`B${row}`).value(e.desc || "");
-    details.cell(`C${row}`).value(e.client || "");
-    const amt = (typeof e.amount === "number") ? e.amount : (parseFloat(e.amount) || 0);
-    details.cell(`D${row}`).value(amt);
-    details.cell(`E${row}`).value(e.seq != null ? String(e.seq).padStart(3, "0") : "");
-    details.cell(`F${row}`).value(e.cat || "");
-  }
+  function writeLine(details, row, e){
+  // B = n°
+  details.cell(`B${row}`).value(e.seq != null ? String(e.seq).padStart(3,"0") : "");
 
+  // C = data
+  details.cell(`C${row}`).value(e.date || "");
+
+  // D = descrizione
+  details.cell(`D${row}`).value(e.desc || "");
+
+  // E = cliente / trasferta
+  details.cell(`E${row}`).value(e.client || "");
+
+  // F = importo
+  const amt = (typeof e.amount === "number") ? e.amount : (parseFloat(e.amount)||0);
+  details.cell(`F${row}`).value(amt);
+}
   function safeName(name) {
     return (name || "Utente").replace(/[^\w\-]+/g, "_").slice(0, 40);
   }
